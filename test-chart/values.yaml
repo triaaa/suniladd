@@ -1,0 +1,61 @@
+application:
+  # TODO: Gradle minion to inject this. This is actually related to docker and kube both
+  version: 0.0.1
+  mode: cb
+
+docker:
+  registry:
+    url: 895462685128.dkr.ecr.us-west-2.amazonaws.com
+    namespace: test-ns
+
+service:
+  type: ClusterIP
+  externalPort: 8080
+  internalPort: 8080
+
+deployment:
+  replicaCount: 1
+  jvmOptions: -Xms256M -Xmx256M -Xss1M -XX:ReservedCodeCacheSize=240M -XX:MaxDirectMemorySize=10M -XX:MaxMetaspaceSize=100M
+  prometheus:
+    scrapeEnabled: true
+    path: /prometheus
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+  probes:
+    readinessProbe:
+      httpGet:
+        path: /health
+        port: 8080
+      initialDelaySeconds: 30
+      timeoutSeconds: 2
+      failureThreshold: 18
+      periodSeconds: 10
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 8080
+      initialDelaySeconds: 30
+      timeoutSeconds: 2
+      failureThreshold: 6
+      periodSeconds: 30
+  pullPolicy: IfNotPresent
+
+configmap:
+  envMounted:
+  - key: A
+    value: B
+  volumeMounted:
+  - key: application.yaml
+    value: test
+secret:
+  envMounted:
+    - key: A
+      value: B
+  volumeMounted:
+    - key: secret.txt
+      value: test
