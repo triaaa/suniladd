@@ -1,0 +1,169 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: dep-{{ template "minion-ms.resourceName" . }}
+  labels:
+    app: {{ template "minion-ms.resourceName" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  selector:
+    matchLabels:
+        app: {{ template "minion-ms.resourceName" . }}
+  replicas: {{ .Values.deployment.replicaCount }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "minion-ms.resourceName" . }}
+        release: {{ .Release.Name }}
+
+      annotations:
+
+{{- if .Values.deployment.prometheus }}
+#########################
+# PROMETHEUS ANNOTATIONS
+#########################
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ .Values.service.internalPort | quote}}
+        prometheus.io/path: "/prometheus"
+{{- end}}
+
+#########################
+# CHECKSUM ANNOTATIONS
+#########################
+{{- if .Values.configmap.envMounted}}
+        checksum/env_config: {{ include (print $.Template.BasePath "/configmap-env.yaml") . | sha256sum }}
+{{- end }}
+
+{{- if .Values.configmap.volumeMounted}}
+        checksum/vol_config: {{ include (print $.Template.BasePath "/configmap-vol.yaml") . | sha256sum }}
+{{- end}}
+
+{{- if .Values.configmap.envMounted}}
+        checksum/env_secret: {{ include (print $.Template.BasePath "/secret-env.yaml") . | sha256sum }}
+{{- end }}
+
+{{- if .Values.configmap.volumeMounted}}
+        checksum/vol_secret: {{ include (print $.Template.BasePath "/secret-vol.yaml") . | sha256sum }}
+{{- end}}
+
+    spec:
+      containers:
+        - name: cnt-{{ template "minion-ms.resourceName" . }}
+          image: "{{ .Values.docker.image.repository }}:{{ .Values.docker.image.tag }}"
+          imagePullPolicy: {{ .Values.deployment.pullPolicy }}
+          env:
+            - name: X_INFO_DEPLOYMENT_NODE
+              valueFrom:
+                  fieldRef:
+                      fieldPath: spec.nodeName
+            - name: X_INFO_DEPLOYMENT_NAMESPACE
+              valueFrom:
+                  fieldRef:
+                      fieldPath: metadata.namespace
+            - name: X_INFO_DEPLOYMENT_POD
+              valueFrom:
+                  fieldRef:
+                      fieldPath: metadata.name
+            - name: X_INFO_APP_NAME
+              value: fnd-customer
+            - name: X_INFO_APP_VERSION
+              value: 0.0.3
+            - name: SPRING_PROFILES_ACTIVE
+              value: cold-box,app-development
+            - name: NAMESPACE
+              value: app-development
+            {{- if .Values.application.mode }}
+            - name: MODE
+              value: {{ .Values.application.mode }}
+            {{- end }}
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ .Values.deployment.jvmOptions }}
+          ports:
+            - containerPort: {{ .Values.service.internalPort }}
+
+#########################
+# READINESS PROBES
+#########################
+{{- if .Values.deployment.probes.readinessProbe}}
+          readinessProbe:
+{{ toYaml .Values.deployment.probes.readinessProbe | indent 12 }}
+{{- end}}
+
+#########################
+# LIVENESS PROBES
+#########################
+{{- if .Values.deployment.probes.livenessProbe}}
+          livenessProbe:
+{{ toYaml .Values.deployment.probes.livenessProbe | indent 12 }}
+          {{- end}}
+
+#########################
+# RESOURCE LIMITS AND REQUESTS
+#########################
+{{- if .Values.deployment.resources }}
+          resources:
+{{ toYaml .Values.deployment.resources | indent 12 }}
+{{- end }}
+
+#########################
+# ENV MOUNT
+#########################
+{{- if or .Values.configmap.envMounted  .Values.secret.envMounted }}
+          envFrom:
+{{- if .Values.configmap.envMounted}}
+          - configMapRef:
+              name: cme-{{ template "minion-ms.resourceName" .}}
+{{- end}}
+{{- if .Values.secret.envMounted}}
+          - secretRef:
+                name: sce-{{ template "minion-ms.resourceName" .}}
+{{- end}}
+{{- end}}
+
+#########################
+# VOLUME MOUNT
+#########################
+
+{{- if or .Values.configmap.volumeMounted  .Values.secret.volumeMounted }}
+
+          volumeMounts:
+{{- if .Values.configmap.volumeMounted}}
+              - name: cmv-{{ template "minion-ms.resourceName" .}}
+                mountPath: /config
+{{- end}}
+{{- if .Values.secret.volumeMounted  }}
+              - name: scv-{{ template "minion-ms.resourceName" .}}
+                mountPath: /secret
+{{- end }}
+
+{{- end }}
+
+#########################
+# VOLUMES
+#########################
+{{- if or .Values.configmap.volumeMounted  .Values.secret.volumeMounted }}
+
+      volumes:
+{{- if .Values.configmap.volumeMounted  }}
+        - name: cmv-{{ template "minion-ms.resourceName" .}}
+          configMap:
+            name: cmv-{{ template "minion-ms.resourceName" .}}
+{{- end }}
+{{- if .Values.secret.volumeMounted  }}
+        - name: scv-{{ template "minion-ms.resourceName" .}}
+          configMap:
+              name: scv-{{ template "minion-ms.resourceName" .}}
+{{- end }}
+
+{{- end }}
+
+#########################
+# NODE SELECTORS
+#########################
+    {{- if .Values.nodeSelector }}
+      ## TODO: Implement this.
+      nodeSelector:
+{{ toYaml .Values.deployment.nodeSelector | indent 8 }}
+    {{- end }}

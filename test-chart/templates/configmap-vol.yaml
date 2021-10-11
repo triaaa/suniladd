@@ -1,0 +1,10 @@
+{{- if .Values.configmap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cmv-{{ template "minion-ms.resourceName" . }}
+data:
+{{- range .Values.configmap.volumeMounted}}
+{{ .key | indent 2}}: {{ toYaml .value | indent 4 }}
+{{- end}}
+{{- end}}

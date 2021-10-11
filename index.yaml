@@ -1,0 +1,12 @@
+apiVersion: v1
+entries:
+  test-chart:
+  - apiVersion: v1
+    created: "2021-10-10T21:03:36.7277044-03:00"
+    description: Simple Micro-service Chart
+    digest: 09ca8e702743052d053c56dc4780e107bb2d03d48a3ca704a08c448f6fd7a0e2
+    name: test-chart
+    urls:
+    - test-chart-0.0.1.tgz
+    version: 0.0.1
+generated: "2021-10-10T21:03:36.7266431-03:00"
