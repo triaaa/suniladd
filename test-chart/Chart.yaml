@@ -1,4 +1,0 @@
-apiVersion: v1
-description: Simple Micro-service Chart
-name: test-chart
-version: 0.0.1
